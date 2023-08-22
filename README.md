@@ -4,10 +4,10 @@
 구글 플레이스, 네이버 플레이스, 카카오 플레이스 사이트를 스크랩
 
 ## 주요 기술 stack
-language : python 3.10+
-postgresql 12.12 + (docker)
-AWS SQS (optional) - 우선 queue로 구현
-Docker (optional)
+- language : python 3.10+
+- postgresql 12.12 + (docker)
+- AWS SQS (optional) - 우선 queue로 구현
+- Docker (optional)
 
 
 
