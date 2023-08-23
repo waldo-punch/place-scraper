@@ -3,15 +3,15 @@ from abc import *
 
 class ScrapBase(metaclass=ABCMeta):
     @abstractmethod
-    def get_reviews(self, place_id: str):
+    def get_reviews(self):
         pass
 
     @abstractmethod
-    def get_comments(self, place_id: str):
+    def get_comments(self):
         pass
 
     @abstractmethod
-    def get_place_basic_info(self, place_id: str):
+    def get_place_basic_info(self):
         pass
 
     @abstractmethod
