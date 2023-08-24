@@ -1,3 +1,4 @@
+import logging
 import time
 
 from bs4 import BeautifulSoup
@@ -8,6 +9,9 @@ from selenium.webdriver.common.by import By
 from media.base import ScrapBase
 from utils.date_parser import *
 from utils.http_request import Get
+
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 
 
 class NaverPlace(ScrapBase):

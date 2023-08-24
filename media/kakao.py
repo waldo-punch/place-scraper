@@ -1,6 +1,12 @@
+import logging
+import time
+
 from media.base import ScrapBase
 from utils.date_parser import *
 from utils.http_request import Get
+
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 
 
 class KakaoPlace(ScrapBase):
@@ -22,38 +28,43 @@ class KakaoPlace(ScrapBase):
         pass
 
     def get_reviews(self):
-
         url = f'https://place.map.kakao.com/commentlist/v/{self.store_id}'
         review_list = []
         while True:
+            print(url)
             get = Get(url, self.headers)
             data = get.request()
-            comment = data['comment']
-            has_next = comment['hasNext']
-            list = comment['list']
-            for each in range(list):
-                comment_id = each['commentId']
-                regdate = kakao_date_formatter(each['date'])
-                if self.status == 'P' and not is_yesterday(regdate):
-                    has_next = False
+            try:
+                comment = data.get('comment')
+                has_next = comment.get('hasNext')
+                list = comment.get('list')
+                for each in list:
+                    comment_id = each.get('commentid')
+                    regdate = kakao_date_formatter(each.get('date'))
+                    if self.status == 'P' and not is_yesterday(regdate):
+                        has_next = False
+                        break
+
+                    if self.status == 'N' and not is_two_years_before(regdate):
+                        has_next = False
+                        break
+
+                    review = {
+                        'user_id': each.get('commentid'),
+                        'user_link': 'https://map.kakao.com/?target=other&tab=review&mapuserid=' + each['commentid'],
+                        'comment': each.get('contents',''),
+                        'score': each.get('point',''),
+                        'date': regdate,
+                        'comment_id': comment_id,
+                    }
+                    review_list.append(review)
+                    url = f'https://place.map.kakao.com/commentlist/v/{self.store_id}/{comment_id}'
+
+                if not has_next:
                     break
-
-                if self.status == 's' and not is_two_years_before(regdate):
-                    has_next = False
-                    break
-
-                review = {
-                    'user_id': each['commentId'],
-                    'user_link': 'https://map.kakao.com/?target=other&tab=review&mapuserid=' + each['commentId'],
-                    'comment': each['contents'],
-                    'score': each['point'],
-                    'date': regdate,
-                    'comment_id': comment_id,
-                }
-                review_list.append(review)
-                url = f'https://place.map.kakao.com/commentlist/v/{self.store_id}/{comment_id}'
-
-            if not has_next:
+                time.sleep(0.3)
+            except KeyError as e:
+                logger.error(f"Error parsing data: {e}")
                 break
 
         return review_list
@@ -67,26 +78,25 @@ class KakaoPlace(ScrapBase):
             get = Get(url, self.headers)
             data = get.request()
             api_place_info = data['basicInfo']
-            open_time, off_time = make_manage_hour(api_place_info['openHour'])
+            open_time = make_manage_hour(api_place_info)
             store_info = {
-                'place_id': api_place_info['cid'],
-                'description': api_place_info['description'],
+                'place_id': str(api_place_info['cid']),
                 'name': api_place_info['placenamefull'],
                 'geoX': api_place_info['wpointx'],
                 'geoY': api_place_info['wpointy'],
-                'address': api_place_info['address']['region']['fullname'] + ' ' + api_place_info['address']['addrbunho'],
+                'address': api_place_info['address']['region']['fullname'] + ' ' + api_place_info['address'][
+                    'addrbunho'],
                 'roadAddress': api_place_info['address']['newaddr']['newaddrfull'],
                 'phone': api_place_info['phonenum'],
                 'keywords': api_place_info['category']['catename'].split(','),
                 'thumbnail': api_place_info['mainphotourl'],
                 'link': api_place_info['homepage'],
-                'open_time': open_time,
-                'off_time': off_time
+                'open_time': open_time
             }
 
             return store_info
-        except KeyError:
-            # Todo 에러처리
+        except KeyError as e:
+            logger.error(f"Error getting place basic info: {e}")
             return
         pass
 
@@ -95,28 +105,18 @@ class KakaoPlace(ScrapBase):
 
 
 def make_manage_hour(place_json):
-    if not place_json['openHour']:
-        return '', ''
-
-    open_hour = place_json['periodList']
-    period_list = []
+    open_hour = place_json.get('openHour', '')
+    manage_list = []
     if open_hour and len(open_hour) > 0:
-        period_name = open_hour['periodName']
-        time_list = open_hour["timeList"]
-        for entry in time_list:
-            time_name = entry.get("timeName", "")
-            time_se = entry.get("timeSE", "")
-            day_of_week = entry.get("dayOfWeek", "")
-            result = f"{period_name} : {time_name} {time_se} {day_of_week}"
-            period_list.append(result)
+        realtime = open_hour.get('realtime', '')
+        period = realtime.get('currentPeriod', '')
+        if period and len(period) > 0:
+            time_list = period["timeList"]
+            for entry in time_list:
+                time_name = entry.get("timeName", "")
+                time_se = entry.get("timeSE", "")
+                day_of_week = entry.get("dayOfWeek", "")
+                result = f"{time_name} : {time_se} {day_of_week}"
+                manage_list.append(result)
 
-    off_hour = place_json['offdayList']
-    off_day_list = []
-    if off_hour and len(off_hour) > 0:
-        for entry in time_list:
-            time_name = entry.get("holidayName", "")
-            time_se = entry.get("weekAndDay", "")
-            result = f"{time_name} : {time_se}"
-            off_day_list.append(result)
-
-    return ','.join(period_list), ','.join(off_day_list)
+    return ','.join(manage_list)
