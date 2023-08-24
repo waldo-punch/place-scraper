@@ -31,6 +31,11 @@ class GooglePlace(ScrapBase):
         self.store_info = {}
         self.review_list = []
 
+    def run(self):
+        self.__access_place()
+        self.store_info = self.get_place_basic_info()
+        self.review_list.append(self.get_reviews())
+
     def __get_driver(self, debug=False):
         options = Options()
 
@@ -83,6 +88,7 @@ class GooglePlace(ScrapBase):
         review_list = []
         for review in blocks:
             review_list.append(self.__parse_review(review))
+        return review_list
 
     def __parse_review(self, review):
 
