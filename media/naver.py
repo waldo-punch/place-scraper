@@ -1,18 +1,16 @@
 import logging
 import time
+import traceback
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver import Keys
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
 from media.base import ScrapBase
 from utils.date_parser import *
 from utils.http_request import Get
-
-logging.basicConfig(level=logging.ERROR)
-logger = logging.getLogger(__name__)
-
 
 class NaverPlace(ScrapBase):
     def get_comments(self):
@@ -32,28 +30,53 @@ class NaverPlace(ScrapBase):
 
         # N : 신규, P : 수집중, E : 수집 종료
         self.status = status
+        self.driver = self.__get_driver()
+        self.logger = self.__get_logger()
+
         self.store_info = {}
         self.review_list = []
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            traceback.print_exception(exc_type, exc_val, exc_tb)
+
+        self.driver.close()
+        self.driver.quit()
+
+        return True
+    def __get_driver(self, debug=False):
+        options = Options()
+
+        if not self.debug:
+            options.add_argument("--headless")
+        else:
+            options.add_argument("--window-size=1366,768")
+        input_driver = webdriver.Chrome(options=options)
+
+        return input_driver
+
+    def __get_logger(self):
+        logger = logging.getLogger('googlemaps-scraper')
+        logger.setLevel(logging.DEBUG)
+        return logger
 
     def attach_headers(self, headers: dict) -> None:
         self.headers = headers
 
     def get_reviews(self):
-        driver = webdriver.Chrome()
         try:
-            driver.maximize_window()
             url = f'https://m.place.naver.com/restaurant/{self.store_id}/review/visitor?reviewSort=recent'
-            driver.get(url)
+            self.driver.get(url)
             time.sleep(2)
             # Pagedown
-            driver.find_element(By.CSS_SELECTOR, 'body').send_keys(Keys.END)
+            self.driver.find_element(By.CSS_SELECTOR, 'body').send_keys(Keys.END)
 
             cnt = 0
             # 신규, 크롤링에 따른 더보기 값 처리
             while True:
                 try:
-                    driver.find_element(By.XPATH, '//*[@id="app-root"]/div/div/div/div[7]/div[2]/div[3]/div[2]').click()
-                    driver.find_element(By.CSS_SELECTOR, 'body').send_keys(Keys.PAGE_DOWN)
+                    self.driver.find_element(By.XPATH, '//*[@id="app-root"]/div/div/div/div[7]/div[2]/div[3]/div[2]').click()
+                    self.driver.find_element(By.CSS_SELECTOR, 'body').send_keys(Keys.PAGE_DOWN)
                     time.sleep(0.5)
 
                     # ToDo 로직 추가구현 필요
@@ -64,7 +87,7 @@ class NaverPlace(ScrapBase):
                     print(err)
                     break
 
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             review_lists = soup.select(
                 '#app-root > div > div > div > div:nth-child(7) > div:nth-child(2) > div.place_section > div.place_section_content > ul > li')
 
@@ -82,8 +105,7 @@ class NaverPlace(ScrapBase):
                     )
         except Exception as err:
             print(err)
-        finally:
-            driver.close()
+
 
     def get_place_basic_info(self):
         url = f'https://map.naver.com/v5/api/sites/summary/{self.store_id}?lang=ko'

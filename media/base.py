@@ -15,5 +15,5 @@ class ScrapBase(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def parse_html(self, text):
+    def parse_html(self, selected):
         pass
