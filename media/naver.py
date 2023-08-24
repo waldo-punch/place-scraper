@@ -36,6 +36,10 @@ class NaverPlace(ScrapBase):
         self.store_info = {}
         self.review_list = []
 
+    def run(self):
+        self.store_info = self.get_place_basic_info()
+        self.review_list.append(self.get_reviews())
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
             traceback.print_exception(exc_type, exc_val, exc_tb)

@@ -24,6 +24,10 @@ class KakaoPlace(ScrapBase):
         self.store_info = {}
         self.review_list = []
 
+    def run(self):
+        self.store_info = self.get_place_basic_info()
+        self.review_list.append(self.get_reviews())
+
     def parse_html(self, text):
         pass
 
